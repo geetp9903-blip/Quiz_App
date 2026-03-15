@@ -44,7 +44,7 @@ export default function LoginPage() {
     await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/`,
+        redirectTo: `${window.location.origin}/api/auth/callback`,
       },
     });
     setLoading(false);
@@ -93,7 +93,7 @@ export default function LoginPage() {
         <form onSubmit={handleEmailLogin} className="flex flex-col gap-4 mb-6">
           <input
             type="email"
-            placeholder="Email Address"
+            placeholder="Email (or Username)"
             className="w-full px-4 py-3 rounded-xl bg-white/[0.04] border border-white/[0.1] focus:border-violet-500 focus:outline-none transition-colors"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -118,7 +118,7 @@ export default function LoginPage() {
             }}
             disabled={loading}
           >
-            {loading ? "Processing..." : "Continue with Email"}
+            {loading ? "Processing..." : "Sign In / Sign Up"}
           </button>
         </form>
 
