@@ -1,65 +1,144 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { getSubjects, Subject } from "@/lib/api";
+
+const subjectIcons: Record<string, string> = {
+  "Business Laws": "⚖️",
+  "Business Statistics": "📊",
+  "Professional Comm Skills": "💬",
+  "Research Methodology": "🔬",
+  "Financial Management": "💰",
+  "Organizational Behavior": "🏢",
+};
+
+const subjectGradients: Record<string, string> = {
+  "Business Laws": "from-indigo-500/20 to-purple-500/20",
+  "Business Statistics": "from-cyan-500/20 to-blue-500/20",
+  "Professional Comm Skills": "from-emerald-500/20 to-teal-500/20",
+  "Research Methodology": "from-amber-500/20 to-orange-500/20",
+  "Financial Management": "from-rose-500/20 to-pink-500/20",
+  "Organizational Behavior": "from-violet-500/20 to-fuchsia-500/20",
+};
+
+export default function HomePage() {
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [activeAttempts, setActiveAttempts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [subs, attemptsRes] = await Promise.all([
+          getSubjects(),
+          fetch("/api/attempts/active").then(r => r.ok ? r.json() : { attempts: [] })
+        ]);
+        setSubjects(subs);
+        setActiveAttempts(attemptsRes.attempts || []);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div>
+      {/* Hero Section */}
+      <div className="text-center mb-12 animate-fade-in-up">
+        <h1 className="text-4xl sm:text-5xl font-bold mb-4">
+          <span className="gradient-text">Master Your Subjects</span>
+        </h1>
+        <p className="text-lg max-w-xl mx-auto" style={{ color: "var(--color-text-secondary)" }}>
+          Practice with 1,260+ MCQs across 6 subjects. Choose Practice Mode for instant feedback
+          or Quiz Mode to test yourself.
+        </p>
+      </div>
+
+      {/* Active Sessions Section */}
+      {!loading && activeAttempts.length > 0 && (
+        <div className="mb-12 animate-fade-in-up" style={{ animationDelay: '100ms' }}>
+          <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
+            <span className="text-blue-400">⚡</span> Resume Session
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {activeAttempts.map((attempt) => (
+              <Link
+                href={`/${attempt.mode === 'quiz' ? 'quiz' : 'practice'}/${attempt.subject_id}?attemptId=${attempt.id}`}
+                key={attempt.id}
+                className="glass-card p-5 border border-blue-500/20 hover:border-blue-500/50 transition-colors group"
+              >
+                <div className="flex justify-between items-start mb-2">
+                  <span className="text-xs font-bold uppercase tracking-wider text-blue-400 bg-blue-500/10 px-2 py-1 rounded">
+                    {attempt.mode} Mode
+                  </span>
+                  <span className="text-xs" style={{ color: "var(--color-text-secondary)" }}>
+                    {new Date(attempt.started_at).toLocaleDateString()}
+                  </span>
+                </div>
+                <h3 className="text-lg font-semibold group-hover:text-white transition-colors">
+                  {attempt.subjectName}
+                </h3>
+                <p className="text-sm mt-1" style={{ color: "var(--color-text-secondary)" }}>
+                  {attempt.total_questions} Questions
+                </p>
+                <div className="mt-4 flex items-center gap-2 text-xs font-medium text-blue-400">
+                  Continue where you left off →
+                </div>
+              </Link>
+            ))}
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      )}
+
+      {/* Subject Grid */}
+      <div className="mb-4">
+        <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
+          📚 All Subjects
+        </h2>
+      </div>
+      {loading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="glass-card p-6 animate-pulse h-44">
+              <div className="w-12 h-12 rounded-xl bg-white/[0.06] mb-4" />
+              <div className="h-5 bg-white/[0.06] rounded w-3/4 mb-3" />
+              <div className="h-4 bg-white/[0.06] rounded w-1/2" />
+            </div>
+          ))}
         </div>
-      </main>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          {subjects.map((subject, idx) => (
+            <Link
+              href={`/subjects/${subject.id}`}
+              key={subject.id}
+              className="glass-card p-6 group block"
+              style={{ animationDelay: `${idx * 80}ms` }}
+            >
+              <div
+                className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl mb-4 bg-gradient-to-br ${
+                  subjectGradients[subject.name] || "from-indigo-500/20 to-purple-500/20"
+                }`}
+              >
+                {subjectIcons[subject.name] || "📚"}
+              </div>
+              <h2 className="text-lg font-semibold mb-1 group-hover:text-white transition-colors">
+                {subject.name}
+              </h2>
+              <p className="text-sm" style={{ color: "var(--color-text-secondary)" }}>
+                {subject.questionCount} questions
+              </p>
+              <div className="mt-4 flex items-center gap-2 text-xs font-medium" style={{ color: "var(--color-accent-light)" }}>
+                Start practicing →
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
