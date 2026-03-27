@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
-import { startQuiz, submitAnswer, Question, AnswerResponse } from "@/lib/api";
+import { startQuiz, submitAnswer, Question, AnswerResponse, getActiveAttempts, deleteAttempt, ActiveAttempt } from "@/lib/api";
 
 export default function PracticePage() {
   const params = useParams();
@@ -13,6 +13,8 @@ export default function PracticePage() {
 
   const [attemptId, setAttemptId] = useState<number | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
+  const [existingSession, setExistingSession] = useState<ActiveAttempt | null>(null);
+  const [showPrompt, setShowPrompt] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   
   // Track selected options and feedbacks per question index
@@ -25,61 +27,111 @@ export default function PracticePage() {
 
   const urlAttemptId = searchParams.get("attemptId");
 
+  const loadExistingAttempt = useCallback((id: string | number) => {
+    setLoading(true);
+    fetch(`/api/attempts/${id}`)
+      .then(res => res.json())
+      .then(data => {
+        setAttemptId(data.attemptId);
+        setQuestions(data.questions);
+        
+        const newFeedbacks: Record<number, AnswerResponse> = {};
+        const newSelectedOptions: Record<number, number> = {};
+        let newScore = 0;
+        let newAnswered = 0;
+
+        if (data.answersState) {
+          data.answersState.forEach((ans: any) => {
+             const qIndex = data.questions.findIndex((q: any) => q.id === ans.questionId);
+             if (qIndex !== -1) {
+                newSelectedOptions[qIndex] = ans.selectedOptionId;
+                newFeedbacks[qIndex] = {
+                  isCorrect: ans.isCorrect,
+                  correctOption: ans.correctOption
+                };
+                newAnswered++;
+                if (ans.isCorrect) newScore++;
+             }
+          });
+        }
+
+        setSelectedOptions(newSelectedOptions);
+        setFeedbacks(newFeedbacks);
+        setScore(newScore);
+        setAnswered(newAnswered);
+        
+        const firstUnanswered = data.questions.findIndex((_: any, idx: number) => !newFeedbacks[idx]);
+        setCurrentIndex(firstUnanswered !== -1 ? firstUnanswered : 0);
+        
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error(err);
+        setLoading(false);
+      });
+  }, []);
+
+  const startNewQuizSession = useCallback(() => {
+    setLoading(true);
+    startQuiz(subjectId, "practice", count)
+      .then((data) => {
+        setAttemptId(data.attemptId);
+        setQuestions(data.questions);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error(err);
+        setLoading(false);
+      });
+  }, [subjectId, count]);
+
   useEffect(() => {
     if (urlAttemptId) {
-      fetch(`/api/attempts/${urlAttemptId}`)
-        .then(res => res.json())
-        .then(data => {
-          setAttemptId(data.attemptId);
-          setQuestions(data.questions);
-          
-          const newFeedbacks: Record<number, AnswerResponse> = {};
-          const newSelectedOptions: Record<number, number> = {};
-          let newScore = 0;
-          let newAnswered = 0;
-
-          if (data.answersState) {
-            data.answersState.forEach((ans: any) => {
-               const qIndex = data.questions.findIndex((q: any) => q.id === ans.questionId);
-               if (qIndex !== -1) {
-                  newSelectedOptions[qIndex] = ans.selectedOptionId;
-                  newFeedbacks[qIndex] = {
-                    isCorrect: ans.isCorrect,
-                    correctOption: ans.correctOption
-                  };
-                  newAnswered++;
-                  if (ans.isCorrect) newScore++;
-               }
-            });
-          }
-
-          setSelectedOptions(newSelectedOptions);
-          setFeedbacks(newFeedbacks);
-          setScore(newScore);
-          setAnswered(newAnswered);
-          
-          const firstUnanswered = data.questions.findIndex((_: any, idx: number) => !newFeedbacks[idx]);
-          setCurrentIndex(firstUnanswered !== -1 ? firstUnanswered : 0);
-          
-          setLoading(false);
-        })
-        .catch((err) => {
-          console.error(err);
-          setLoading(false);
-        });
+      loadExistingAttempt(urlAttemptId);
     } else {
-      startQuiz(subjectId, "practice", count)
-        .then((data) => {
-          setAttemptId(data.attemptId);
-          setQuestions(data.questions);
-          setLoading(false);
+      // Check for active sessions before starting a new one
+      getActiveAttempts()
+        .then((attempts) => {
+          const activeForSubject = attempts.find(
+            (a) => a.subject_id === subjectId && a.mode === "practice"
+          );
+          if (activeForSubject) {
+            setExistingSession(activeForSubject);
+            setShowPrompt(true);
+            setLoading(false);
+          } else {
+            startNewQuizSession();
+          }
         })
         .catch((err) => {
-          console.error(err);
-          setLoading(false);
+          console.error("Failed to check active attempts, starting new quiz:", err);
+          startNewQuizSession();
         });
     }
-  }, [subjectId, count, urlAttemptId]);
+  }, [subjectId, count, urlAttemptId, loadExistingAttempt, startNewQuizSession]);
+
+  const handleStartFresh = async () => {
+    if (existingSession) {
+      setLoading(true);
+      setShowPrompt(false);
+      try {
+        await deleteAttempt(existingSession.id);
+        startNewQuizSession();
+      } catch (err) {
+        console.error("Failed to delete old attempt:", err);
+        startNewQuizSession(); // Fallback to starting new quiz anyway
+      }
+    }
+  };
+
+  const handleResumeSession = () => {
+    if (existingSession) {
+      setShowPrompt(false);
+      // Update URL to reflect the attempt ID, but load it directly to avoid full refresh
+      window.history.replaceState(null, "", `/practice/${subjectId}?count=${count}&attemptId=${existingSession.id}`);
+      loadExistingAttempt(existingSession.id);
+    }
+  };
 
   const handleOptionSelect = useCallback(
     async (optionId: number) => {
@@ -119,6 +171,62 @@ export default function PracticePage() {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="w-8 h-8 border-2 border-white/20 border-t-violet-400 rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (showPrompt && existingSession) {
+    return (
+      <div className="max-w-2xl mx-auto flex items-center justify-center min-h-[50vh] px-4">
+        <div className="glass-card p-8 text-center animate-fade-in-up border border-violet-500/20 w-full">
+          <div className="w-16 h-16 rounded-full flex items-center justify-center text-3xl mx-auto mb-6 bg-gradient-to-br from-violet-500/20 to-purple-500/20">
+            ⚠️
+          </div>
+          <h2 className="text-2xl font-bold mb-3">Session Already Exists</h2>
+          <p className="text-[15px] mb-8 leading-relaxed" style={{ color: "var(--color-text-secondary)" }}>
+            You have an unfinished practice session for this subject. Starting a new session will permanently delete your previous progress.
+          </p>
+          
+          <div className="flex items-center justify-between mb-8 px-6 py-4 rounded-xl" style={{ background: "rgba(255,255,255,0.03)" }}>
+            <div className="text-left">
+              <span className="block text-xs uppercase tracking-wider font-semibold mb-1" style={{ color: "var(--color-text-secondary)" }}>Current Progress</span>
+              <span className="text-lg font-bold">
+                {existingSession.score} <span style={{ color: "var(--color-text-secondary)", fontSize: "0.875rem" }}>/ {existingSession.total_questions} answered</span>
+              </span>
+            </div>
+            <div className="text-right">
+              <span className="block text-xs uppercase tracking-wider font-semibold mb-1" style={{ color: "var(--color-text-secondary)" }}>Started</span>
+              <span className="text-[15px] font-medium">
+                {new Date(existingSession.started_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+              </span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <button
+              onClick={handleStartFresh}
+              className="px-6 py-3.5 rounded-xl font-semibold text-[15px] transition-all duration-200"
+              style={{
+                background: "rgba(239, 68, 68, 0.1)",
+                color: "#f87171",
+                border: "1px solid rgba(239, 68, 68, 0.2)",
+              }}
+            >
+              Start Fresh
+            </button>
+            <button
+              onClick={handleResumeSession}
+              className="px-6 py-3.5 rounded-xl font-semibold text-[15px] transition-all duration-200"
+              style={{
+                background: "linear-gradient(135deg, #7c5cff, #a78bfa)",
+                color: "white",
+                boxShadow: "0 4px 15px rgba(124, 92, 255, 0.3)",
+              }}
+            >
+              Resume Session
+            </button>
+          </div>
+        </div>
       </div>
     );
   }

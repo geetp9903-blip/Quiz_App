@@ -70,6 +70,16 @@ export interface QuizResult {
   answers: ResultAnswer[];
 }
 
+export interface ActiveAttempt {
+  id: number;
+  subject_id: number;
+  subjectName: string;
+  mode: string;
+  score: number;
+  total_questions: number;
+  started_at: string;
+}
+
 // ── API Functions ───────────────────────────────────────────
 export const getSubjects = async (): Promise<Subject[]> => {
   const res = await api.get('/subjects');
@@ -109,6 +119,15 @@ export const submitQuiz = async (
 export const getQuizResult = async (attemptId: number): Promise<QuizResult> => {
   const res = await api.get(`/quiz/result/${attemptId}`);
   return res.data;
+};
+
+export const getActiveAttempts = async (): Promise<ActiveAttempt[]> => {
+  const res = await api.get('/attempts/active');
+  return res.data.attempts;
+};
+
+export const deleteAttempt = async (attemptId: number): Promise<void> => {
+  await api.delete(`/attempts/${attemptId}`);
 };
 
 export default api;

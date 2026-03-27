@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { getSubjects, Subject } from "@/lib/api";
+import { getSubjects, Subject, deleteAttempt } from "@/lib/api";
 
 const subjectIcons: Record<string, string> = {
   "Business Laws": "⚖️",
@@ -45,6 +45,20 @@ export default function HomePage() {
     fetchData();
   }, []);
 
+  const handleDeleteSession = async (e: React.MouseEvent, attemptId: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (window.confirm("Are you sure you want to delete this session? This action cannot be undone.")) {
+      try {
+        await deleteAttempt(attemptId);
+        setActiveAttempts((prev) => prev.filter((a) => a.id !== attemptId));
+      } catch (err) {
+        console.error("Failed to delete session:", err);
+        alert("Failed to delete session. Please try again.");
+      }
+    }
+  };
+
   return (
     <div>
       {/* Hero Section */}
@@ -69,9 +83,16 @@ export default function HomePage() {
               <Link
                 href={`/${attempt.mode === 'quiz' ? 'quiz' : 'practice'}/${attempt.subject_id}?attemptId=${attempt.id}`}
                 key={attempt.id}
-                className="glass-card p-5 border border-blue-500/20 hover:border-blue-500/50 transition-colors group"
+                className="glass-card p-5 border border-blue-500/20 hover:border-blue-500/50 transition-colors group relative block"
               >
-                <div className="flex justify-between items-start mb-2">
+                <button
+                  onClick={(e) => handleDeleteSession(e, attempt.id)}
+                  className="absolute top-4 right-4 p-2 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100 z-10"
+                  title="Delete Session"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                </button>
+                <div className="flex justify-between items-start mb-2 pr-10">
                   <span className="text-xs font-bold uppercase tracking-wider text-blue-400 bg-blue-500/10 px-2 py-1 rounded">
                     {attempt.mode} Mode
                   </span>
