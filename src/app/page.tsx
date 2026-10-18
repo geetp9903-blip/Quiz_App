@@ -5,6 +5,12 @@ import Link from "next/link";
 import { getSubjects, Subject, deleteAttempt } from "@/lib/api";
 
 const subjectIcons: Record<string, string> = {
+  // Semester 5 Subjects
+  "Business Statistics II": "📈",
+  "Fundamentals of Entrepreneurship": "🚀",
+  "Fundamental & Technical Analysis of Securities (FTAS)": "📊",
+  "International Finance": "🌐",
+  // Semester 4 Subjects (legacy reference)
   "Business Laws": "⚖️",
   "Business Statistics": "📊",
   "Professional Comm Skills": "💬",
@@ -14,6 +20,12 @@ const subjectIcons: Record<string, string> = {
 };
 
 const subjectGradients: Record<string, string> = {
+  // Semester 5 Subjects
+  "Business Statistics II": "from-cyan-500/20 to-blue-500/20",
+  "Fundamentals of Entrepreneurship": "from-amber-500/20 to-orange-500/20",
+  "Fundamental & Technical Analysis of Securities (FTAS)": "from-emerald-500/20 to-teal-500/20",
+  "International Finance": "from-indigo-500/20 to-purple-500/20",
+  // Semester 4 Subjects
   "Business Laws": "from-indigo-500/20 to-purple-500/20",
   "Business Statistics": "from-cyan-500/20 to-blue-500/20",
   "Professional Comm Skills": "from-emerald-500/20 to-teal-500/20",
@@ -67,8 +79,11 @@ export default function HomePage() {
           <span className="gradient-text">Master Your Subjects</span>
         </h1>
         <p className="text-lg max-w-xl mx-auto" style={{ color: "var(--color-text-secondary)" }}>
-          Practice with 1,260+ MCQs across 6 subjects. Choose Practice Mode for instant feedback
-          or Quiz Mode to test yourself.
+          {loading ? (
+            "Loading question banks..."
+          ) : (
+            `Practice with ${subjects.reduce((sum, s) => sum + (s.questionCount || 0), 0).toLocaleString()}+ MCQs across ${subjects.length} subjects. Choose Practice Mode for instant feedback or Quiz Mode to test yourself.`
+          )}
         </p>
       </div>
 
